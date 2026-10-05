@@ -25,7 +25,7 @@ export function SlotsScreen() {
             Partidas
           </h1>
           <p className="max-w-lg text-fg-muted">
-            Tres huecos para carreras distintas. Elige un slot vacío para tomar un club, o retoma una
+            Cinco huecos para carreras distintas. Elige un slot vacío para tomar un club, o retoma una
             campaña guardada.
           </p>
         </header>

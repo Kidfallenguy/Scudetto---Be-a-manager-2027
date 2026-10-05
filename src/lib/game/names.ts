@@ -2997,7 +2997,7 @@ lev: [
   { name: "José Luis Morales", pos: "ST", ovr: 77, age: 39, nat: "ESP", pot: 77 },
   { name: "Carlos Álvarez", pos: "CAM", ovr: 75, age: 22, nat: "ESP", pot: 82 },
   { name: "Álex Cantero", pos: "LW", ovr: 74, age: 26, nat: "ESP", pot: 77 },
-  { name: "Bruno Gonzalez", pos: "CM", ovr: 74, age: 15, nat: "ARG", pot: 97 },
+  
 ],
 irv: [ // Independiente Rivadavia (~€41.6m)
     { name: "Nicolás Bolcato", pos: "GK", ovr: 74, age: 22, nat: "ARG", pot: 82 },
@@ -3017,6 +3017,8 @@ irv: [ // Independiente Rivadavia (~€41.6m)
     { name: "Maximiliano Salas", pos: "ST", ovr: 78, age: 28, nat: "ARG" },
     { name: "Álex Arce", pos: "ST", ovr: 77, age: 31, nat: "PAR" },
     { name: "Fabrizio Sartori", pos: "ST", ovr: 76, age: 24, nat: "ARG", pot: 81 },
+    { name: "Bruno Gonzalez", pos: "CM", ovr: 74, age: 15, nat: "ARG", pot: 97 },
+
   ],
   vel: [ // Vélez (~€39.7m)
     { name: "Facundo Sanguinetti", pos: "GK", ovr: 75, age: 25, nat: "ARG", pot: 82 },
