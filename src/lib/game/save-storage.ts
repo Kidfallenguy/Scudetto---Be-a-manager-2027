@@ -156,12 +156,6 @@ export function createSaveStorage(): PersistStorage<Shape> {
   const listen = () => {
     if (listening || typeof window === "undefined") return;
     listening = true;
-    // Pide al navegador que no borre las partidas cuando falte espacio.
-    try {
-      void navigator.storage?.persist?.();
-    } catch {
-      /* no disponible */
-    }
     // Al salir de la pestaña o cerrar el juego se guarda lo que haya pendiente.
     const onHide = () => {
       void flush();
