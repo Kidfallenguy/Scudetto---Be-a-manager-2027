@@ -14,7 +14,9 @@ const STORE = "kv";
 const META_KEY = "meta";
 const slotKey = (i: number) => `slot:${i}`;
 /** Espera corta para juntar varios cambios seguidos en una sola escritura. */
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 250;
+/** Mínimo de slots que se intentan leer, aunque el registro guardado diga menos. */
+const MIN_READ = 5;
 
 type Shape = { slot: number; slots: Array<unknown | null> };
 type Value = StorageValue<Shape>;
@@ -76,27 +78,35 @@ async function readIdb(): Promise<Value | null> {
   const store = tx.objectStore(STORE);
   const meta = (await reqToPromise(store.get(META_KEY))) as { slot: number; version: number; count: number } | undefined;
   if (!meta) return null;
-  const slots: Array<unknown | null> = [];
-  for (let i = 0; i < meta.count; i++) {
-    slots.push(((await reqToPromise(store.get(slotKey(i)))) as unknown) ?? null);
-  }
+  // Se leen al menos MIN_READ registros: si antes se guardaron menos slots que ahora, no se pierde nada.
+  const count = Math.max(meta.count ?? 0, MIN_READ);
+  const slots = await Promise.all(
+    Array.from({ length: count }, (_, i) => reqToPromise(store.get(slotKey(i))).then((v) => (v as unknown) ?? null)),
+  );
   return { state: { slot: meta.slot, slots }, version: meta.version };
 }
+
+/** Últimos objetos que ya quedaron escritos en IndexedDB, por slot (para no reescribir lo que no cambió). */
+const written: Array<unknown> = [];
 
 async function writeIdb(value: Value): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(STORE, "readwrite");
   const store = tx.objectStore(STORE);
   const { slot, slots } = value.state;
-  const prev = (await reqToPromise(store.get(META_KEY))) as { count?: number } | undefined;
-  const oldCount = prev?.count ?? 0;
+  const touched: Array<[number, unknown]> = [];
   slots.forEach((s, i) => {
+    if (written[i] === s && i in written) return; // sin cambios desde la última escritura
     if (s) store.put(s, slotKey(i));
     else store.delete(slotKey(i));
+    touched.push([i, s]);
   });
-  for (let i = slots.length; i < oldCount; i++) store.delete(slotKey(i));
+  // Registros que sobren de versiones con más slots.
+  for (let i = slots.length; i < slots.length + 16; i++) store.delete(slotKey(i));
   store.put({ slot, version: value.version ?? 0, count: slots.length }, META_KEY);
   await txDone(tx);
+  // Recién acá, con la transacción confirmada, se da por guardado.
+  for (const [i, s] of touched) written[i] = s;
 }
 
 function writeLegacy(name: string, value: Value): void {
@@ -112,6 +122,7 @@ export function createSaveStorage(): PersistStorage<Shape> {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let chain: Promise<void> = Promise.resolve();
   let listening = false;
+  let lastSlot: number | null = null;
 
   const flush = (): Promise<void> => {
     if (timer) {
@@ -145,6 +156,12 @@ export function createSaveStorage(): PersistStorage<Shape> {
   const listen = () => {
     if (listening || typeof window === "undefined") return;
     listening = true;
+    // Pide al navegador que no borre las partidas cuando falte espacio.
+    try {
+      void navigator.storage?.persist?.();
+    } catch {
+      /* no disponible */
+    }
     // Al salir de la pestaña o cerrar el juego se guarda lo que haya pendiente.
     const onHide = () => {
       void flush();
@@ -163,7 +180,17 @@ export function createSaveStorage(): PersistStorage<Shape> {
       if (idbAvailable()) {
         try {
           const fromIdb = await readIdb();
-          if (fromIdb) return fromIdb as Value;
+          if (fromIdb) {
+            // Si alguna escritura a IndexedDB falló antes y esa partida quedó en localStorage, se rescata.
+            const legacy = readLegacy(name);
+            if (legacy) {
+              const lslots = legacy.state.slots ?? [];
+              const merged = [...fromIdb.state.slots];
+              for (let i = 0; i < lslots.length; i++) if (!merged[i] && lslots[i]) merged[i] = lslots[i];
+              fromIdb.state.slots = merged;
+            }
+            return fromIdb as Value;
+          }
         } catch (e) {
           console.error("[scudetto] No se pudo leer IndexedDB:", e);
         }
@@ -173,9 +200,12 @@ export function createSaveStorage(): PersistStorage<Shape> {
     setItem: (name, value) => {
       if (typeof window === "undefined") return;
       listen();
+      const slotChanged = lastSlot !== null && lastSlot !== value.state.slot;
+      lastSlot = value.state.slot;
       pending = { name, value: value as Value };
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void flush(), DEBOUNCE_MS);
+      // Al cambiar de slot se guarda ya, sin esperar.
+      timer = setTimeout(() => void flush(), slotChanged ? 0 : DEBOUNCE_MS);
     },
     removeItem: async (name) => {
       pending = null;
@@ -192,6 +222,7 @@ export function createSaveStorage(): PersistStorage<Shape> {
         const tx = db.transaction(STORE, "readwrite");
         tx.objectStore(STORE).clear();
         await txDone(tx);
+        written.length = 0;
       } catch (e) {
         console.error("[scudetto] No se pudo borrar IndexedDB:", e);
       }

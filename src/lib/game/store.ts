@@ -517,7 +517,8 @@ function padSlots(list: Array<GameSave | null> | undefined): Array<GameSave | nu
     const item = list[i];
     if (!item || typeof item !== "object") continue;
     const save = normalizeSave(item);
-    next[i] = isSelectableClub(save.clubId) ? save : null;
+    // Solo se descarta lo que no tiene club conocido; borrar acá borraría la partida del disco.
+    next[i] = isKnownClub(save.clubId) ? save : null;
   }
   return next;
 }
@@ -1192,8 +1193,14 @@ export const useGame = create<GameStore>()(
       version: SAVE_VERSION,
       storage: createSaveStorage() as unknown as PersistStorage<PersistShape>,
       partialize: (s) => {
-        const slots = snapshotSlots(s);
-        return { slot: clampSlot(s.slot), slots };
+        const idx = clampSlot(s.slot);
+        // Los slots inactivos se reusan tal cual (misma referencia) para que solo se reescriba el que cambió.
+        const slots = emptySlots();
+        for (let i = 0; i < SLOT_COUNT; i++) slots[i] = s.slots?.[i] ?? null;
+        if (s.clubId && isSelectableClub(s.clubId)) {
+          slots[idx] = pickData({ ...s, slot: idx, screen: playableScreen(s.screen) });
+        }
+        return { slot: idx, slots };
       },
       migrate: (persisted, version) => migratePersisted(persisted, version),
       merge: (persisted, current) => {
