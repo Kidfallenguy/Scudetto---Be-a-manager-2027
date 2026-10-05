@@ -2970,18 +2970,19 @@ ala: [
   { name: "Ewan Rosales", pos: "ST", ovr: 67, age: 19, nat: "SCO", pot: 94 }
 ],
 elc: [
-  { name: "Miguel San Román", pos: "GK", ovr: 74, age: 28, nat: "ESP", pot: 76 },
+  { name: "Miguel San Román", pos: "GK", ovr: 79, age: 28, nat: "ESP", pot: 76 },
   { name: "Matías Dituro", pos: "GK", ovr: 75, age: 39, nat: "ARG", pot: 75 },
   { name: "Pedro Bigas", pos: "CB", ovr: 76, age: 36, nat: "ESP", pot: 76 },
   { name: "David Affengruber", pos: "CB", ovr: 75, age: 25, nat: "AUT", pot: 80 },
-  { name: "Josema", pos: "CB", ovr: 74, age: 30, nat: "ESP", pot: 74 },
+  { name: "Josema", pos: "CB", ovr: 79, age: 30, nat: "ESP", pot: 74 },
   { name: "Nicolás Castro", pos: "CM", ovr: 76, age: 25, nat: "ARG", pot: 81 },
   { name: "Álex Collado", pos: "CAM", ovr: 76, age: 27, nat: "ESP", pot: 79 },
   { name: "Óscar Plano", pos: "RW", ovr: 75, age: 35, nat: "ESP", pot: 75 },
   { name: "Sory Kaba", pos: "ST", ovr: 75, age: 31, nat: "GUI", pot: 75 },
   { name: "Yago Santiago", pos: "LW", ovr: 74, age: 23, nat: "ESP", pot: 80 },
   { name: "Adam Boayar", pos: "ST", ovr: 73, age: 21, nat: "ESP", pot: 81 },
-  { name: "André Silva", pos: "ST", ovr: 77, age: 30, nat: "POR", pot: 77 },
+  { name: "André Silva", pos: "ST", ovr: 80, age: 30, nat: "POR", pot: 77 },
+  { name: "Santiago Bienati", pos: "ST", ovr: 77, age: 15, nat: "ARG", pot: 97 },
 ],
 lev: [
   { name: "Andrés Fernández", pos: "GK", ovr: 75, age: 39, nat: "ESP", pot: 75 },
@@ -2996,6 +2997,7 @@ lev: [
   { name: "José Luis Morales", pos: "ST", ovr: 77, age: 39, nat: "ESP", pot: 77 },
   { name: "Carlos Álvarez", pos: "CAM", ovr: 75, age: 22, nat: "ESP", pot: 82 },
   { name: "Álex Cantero", pos: "LW", ovr: 74, age: 26, nat: "ESP", pot: 77 },
+  { name: "Bruno Gonzalez", pos: "CM", ovr: 74, age: 15, nat: "ARG", pot: 97 },
 ],
 irv: [ // Independiente Rivadavia (~€41.6m)
     { name: "Nicolás Bolcato", pos: "GK", ovr: 74, age: 22, nat: "ARG", pot: 82 },

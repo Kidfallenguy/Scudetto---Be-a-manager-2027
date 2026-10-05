@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, type PersistStorage } from "zustand/middleware";
+import { createSaveStorage } from "./save-storage";
 import { MAX_SCOUTS, SCOUT_COUNTRIES, seedAcademy, youthToPlayer, scoutCost } from "./academy";
 import { createBoard, normalizeBoard } from "./board";
 import { aiTerms, applyTerms, ensureTerms, renewedContract } from "./contracts";
@@ -59,7 +60,11 @@ import { createCareer, wageBill } from "./world";
 
 const SAVE_VERSION = 6;
 const STORAGE_KEY = "scudetto-save-v1";
-export const SLOT_COUNT = 3;
+export const SLOT_COUNT = 5;
+
+function emptySlots(): Array<GameSave | null> {
+  return Array.from({ length: SLOT_COUNT }, () => null);
+}
 
 type Actions = {
   hydrated: boolean;
@@ -506,7 +511,7 @@ function normalizeSave(raw: Partial<GameSave> | null | undefined): GameSave {
 }
 
 function padSlots(list: Array<GameSave | null> | undefined): Array<GameSave | null> {
-  const next: Array<GameSave | null> = [null, null, null];
+  const next: Array<GameSave | null> = emptySlots();
   if (!Array.isArray(list)) return next;
   for (let i = 0; i < SLOT_COUNT; i++) {
     const item = list[i];
@@ -579,7 +584,7 @@ type PersistShape = {
 };
 
 function migratePersisted(persisted: unknown, version: number): PersistShape {
-  const empty: PersistShape = { slot: 0, slots: [null, null, null] };
+  const empty: PersistShape = { slot: 0, slots: emptySlots() };
   if (!persisted || typeof persisted !== "object") return empty;
 
   const raw = persisted as Record<string, unknown>;
@@ -594,7 +599,9 @@ function migratePersisted(persisted: unknown, version: number): PersistShape {
   if (!isKnownClub(save.clubId) || !isSelectableClub(save.clubId)) return empty;
   save.slot = 0;
   save.screen = playableScreen(save.screen);
-  return { slot: 0, slots: [save, null, null] };
+  const legacySlots = emptySlots();
+  legacySlots[0] = save;
+  return { slot: 0, slots: legacySlots };
 }
 
 export const useGame = create<GameStore>()(
@@ -602,7 +609,7 @@ export const useGame = create<GameStore>()(
     (set, get) => ({
       ...emptyShell(),
       hydrated: false,
-      slots: [null, null, null],
+      slots: emptySlots(),
       setHydrated: (v) => set({ hydrated: v }),
       setScreen: (screen) => set({ screen }),
       openSlots: () => {
@@ -1183,6 +1190,7 @@ export const useGame = create<GameStore>()(
     {
       name: STORAGE_KEY,
       version: SAVE_VERSION,
+      storage: createSaveStorage() as unknown as PersistStorage<PersistShape>,
       partialize: (s) => {
         const slots = snapshotSlots(s);
         return { slot: clampSlot(s.slot), slots };
