@@ -177,11 +177,11 @@ test("limpia ofertas, entrenamiento y cesiones que nombraban al jugador", async 
   save.events ??= normalizeEventState(null);
   const p = squadOf(save)[0]!;
   save.offers.push({ id: "o1", kind: "buy", playerId: p.id, fromClubId: "cag", toClubId: save.clubId, fee: 1, loanSeasons: 0, week: 1, unsolicited: true });
-  save.trainingPlan = { assignments: [{ playerId: p.id, stats: [] }], startDate: "2026-07-01", elapsedDays: 0, totalDays: 182 };
+  save.trainingPlans = [{ id: "tp1", tier: "intensive", cost: 0, assignments: [{ playerId: p.id }], startDate: "2026-07-01", elapsedDays: 0, totalDays: 182 }];
   const r = applyEventEffects(save, [{ kind: "leaveSquad", target: p, eventId: ID, compensation: 5 }]);
   assert.equal(r.lines.length, 1);
   assert.equal(save.offers.some((o) => o.playerId === p.id), false);
-  assert.equal(save.trainingPlan!.assignments.length, 0);
+  assert.equal(save.trainingPlans[0]!.assignments.length, 0);
   // Aplicarlo dos veces no duplica el registro ni rompe nada.
   applyEventEffects(save, [{ kind: "leaveSquad", target: p, eventId: ID, compensation: 5 }]);
   assert.equal(save.events!.departures!.length, 1);

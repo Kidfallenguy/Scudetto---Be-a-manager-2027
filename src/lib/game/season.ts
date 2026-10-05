@@ -248,7 +248,7 @@ export function evolveSeason(prev: GameSave): GameSave {
   next.lastMatch = null;
   next.offers = [];
   next.popups = [];
-  if (trainingEndedInSummer && next.trainingReport) next.popups.push(trainingPopup(next.trainingReport));
+  for (const r of trainingEndedInSummer) next.popups.push(trainingPopup(r));
   next.tempLineupBackup = null;
   next.scouts = [];
   next.screen = "office";

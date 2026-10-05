@@ -24,7 +24,7 @@ import { ensureSeasonAwards, normalizeAwards } from "./awards";
 import { archiveSeason, normalizeCareerHistory } from "./career";
 import { evolveSeason } from "./season";
 import { attrsFor, assignShirtNumbers, buildSquad, resyncStats } from "./squads";
-import { makePlan, validateAssignments } from "./training";
+import { startTrainingPlan, tierInfo, validateTrainingStart } from "./training";
 import { BENCH_SIZE, FORMATIONS, canPlaySlot, dropFromLineup, isUnavailable, pickBench, pickXi, placeNewcomer, sanitizeBench, unavailableDetail, unavailableGames } from "./tactics";
 import { cleanNameNumber, hasNameNumber } from "./names";
 import { ensurePos, normalizePos } from "./positions";
@@ -51,7 +51,9 @@ import type {
   Player,
   Pos,
   Screen,
-  TrainingAssignment,
+  TrainingPlan,
+  TrainingReport,
+  TrainingTier,
 } from "./types";
 import { createCareer, wageBill } from "./world";
 
@@ -96,7 +98,7 @@ type Actions = {
   startScout: (countryId: string, tier: 1 | 2 | 3, pos: Pos | "ANY") => string | null;
   signYouth: (youthId: string) => string | null;
   releaseYouth: (youthId: string) => string | null;
-  startTraining: (assignments: TrainingAssignment[]) => string | null;
+  startTraining: (tier: TrainingTier, playerIds: string[]) => string | null;
   dismissTrainingReport: () => void;
   dismissPopup: () => void;
   resolveEventChoice: (popupId: string, choiceId: string) => string | null;
@@ -231,8 +233,8 @@ export function emptyShell(): GameSave {
     awards: [],
     seasonOver: false,
     pendingFixtureId: null,
-    trainingPlan: null,
-    trainingReport: null,
+    trainingPlans: [],
+    trainingReports: [],
     academy: [],
     scouts: [],
     academyLevel: 1,
@@ -318,8 +320,8 @@ function pickData(s: GameSave): GameSave {
     awards: normalizeAwards(s.awards),
     seasonOver: Boolean(s.seasonOver),
     pendingFixtureId: s.pendingFixtureId ?? null,
-    trainingPlan: s.trainingPlan && Array.isArray(s.trainingPlan.assignments) ? s.trainingPlan : null,
-    trainingReport: s.trainingReport && Array.isArray(s.trainingReport.results) ? s.trainingReport : null,
+    trainingPlans: normalizeTrainingPlans(s),
+    trainingReports: normalizeTrainingReports(s),
     academy: cleanPlayerNames(
       (s.academy ?? []).map((y) => ({
         ...y,
@@ -431,6 +433,69 @@ function migrateConmebolClubs(r: GameSave): GameSave {
     out = { ...out, players: [...out.players, ...extra] };
   }
   return out;
+}
+
+const TRAINING_TIER_IDS: TrainingTier[] = ["progressive", "intensive", "elite"];
+
+/** Planes de entrenamiento: acepta el formato nuevo y migra el viejo (un solo plan, sin nivel ni costo). */
+function normalizeTrainingPlans(raw: Partial<GameSave> & { trainingPlan?: unknown }): TrainingPlan[] {
+  const out: TrainingPlan[] = [];
+  const seenTiers = new Set<TrainingTier>();
+  const seenPlayers = new Set<string>();
+  const push = (pl: TrainingPlan) => {
+    if (seenTiers.has(pl.tier)) return;
+    const assignments = pl.assignments.filter((a) => a?.playerId && !seenPlayers.has(a.playerId));
+    seenTiers.add(pl.tier);
+    for (const a of assignments) seenPlayers.add(a.playerId);
+    out.push({ ...pl, assignments: assignments.map((a) => ({ playerId: a.playerId })) });
+  };
+  if (Array.isArray(raw.trainingPlans)) {
+    for (const pl of raw.trainingPlans) {
+      if (!pl || !Array.isArray(pl.assignments) || !TRAINING_TIER_IDS.includes(pl.tier)) continue;
+      push({
+        id: pl.id ?? uid("trp"),
+        tier: pl.tier,
+        cost: Number(pl.cost) || 0,
+        assignments: pl.assignments,
+        startDate: pl.startDate ?? "",
+        elapsedDays: Number(pl.elapsedDays) || 0,
+        totalDays: Number(pl.totalDays) > 0 ? Number(pl.totalDays) : 182,
+      });
+    }
+  }
+  const legacy = raw.trainingPlan as
+    | { assignments?: Array<{ playerId: string }>; startDate?: string; elapsedDays?: number; totalDays?: number }
+    | null
+    | undefined;
+  if (legacy && Array.isArray(legacy.assignments)) {
+    // Un ciclo viejo en marcha sigue como Intensivo, sin costo, con el tiempo que ya llevaba.
+    push({
+      id: uid("trp"),
+      tier: "intensive",
+      cost: 0,
+      assignments: legacy.assignments.map((a) => ({ playerId: a.playerId })),
+      startDate: legacy.startDate ?? "",
+      elapsedDays: Number(legacy.elapsedDays) || 0,
+      totalDays: Number(legacy.totalDays) > 0 ? Number(legacy.totalDays) : 182,
+    });
+  }
+  return out;
+}
+
+function normalizeTrainingReports(raw: Partial<GameSave> & { trainingReport?: unknown }): TrainingReport[] {
+  const out: TrainingReport[] = [];
+  if (Array.isArray(raw.trainingReports)) {
+    for (const r of raw.trainingReports) {
+      if (r && Array.isArray(r.results)) {
+        out.push({ ...r, tier: TRAINING_TIER_IDS.includes(r.tier) ? r.tier : "intensive", cost: Number(r.cost) || 0 });
+      }
+    }
+  }
+  const legacy = raw.trainingReport as TrainingReport | null | undefined;
+  if (legacy && Array.isArray(legacy.results)) {
+    out.push({ ...legacy, tier: "intensive", cost: 0 });
+  }
+  return out.slice(0, 6);
 }
 
 function normalizeSave(raw: Partial<GameSave> | null | undefined): GameSave {
@@ -1006,29 +1071,30 @@ export const useGame = create<GameStore>()(
         set({ academy: s.academy, news: s.news });
         return null;
       },
-      startTraining: (assignments) => {
+      startTraining: (tier, playerIds) => {
         const s = cloneSave(get());
-        const err = validateAssignments(s, assignments);
+        const err = validateTrainingStart(s, tier, playerIds);
         if (err) return err;
-        s.trainingPlan = makePlan(s, assignments);
-        const names = assignments
-          .map((a) => s.players.find((x) => x.id === a.playerId)?.name)
+        const info = tierInfo(tier);
+        startTrainingPlan(s, tier, playerIds);
+        const names = playerIds
+          .map((id) => s.players.find((x) => x.id === id)?.name)
           .filter(Boolean)
           .join(" y ");
         s.news.unshift({
           id: uid("n"),
           week: s.week,
           tone: "neutral",
-          title: "Arranca el entrenamiento",
-          body: `${names} entrenan durante 6 meses. Te avisamos cuando terminen.`,
+          title: `Arranca el ${info.name}`,
+          body: `${names} entrenan durante 6 meses (${formatMoney(info.cost)}). Te avisamos cuando terminen.`,
         });
-        set({ trainingPlan: s.trainingPlan, news: s.news });
+        set({ trainingPlans: s.trainingPlans, budget: s.budget, news: s.news });
         return null;
       },
       dismissTrainingReport: () => {
-        const r = get().trainingReport;
-        if (!r || r.seen) return;
-        set({ trainingReport: { ...r, seen: true } });
+        const reports = get().trainingReports;
+        if (!reports.some((r) => !r.seen)) return;
+        set({ trainingReports: reports.map((r) => (r.seen ? r : { ...r, seen: true })) });
       },
       dismissPopup: () => {
         const popups = get().popups.slice(1);
@@ -1072,8 +1138,8 @@ export const useGame = create<GameStore>()(
         s.standings = s.leagueTables[playableLeague(newClub.league)] ?? s.standings;
         // Lo que dependía del club anterior no se lleva.
         s.offers = [];
-        s.trainingPlan = null;
-        s.trainingReport = null;
+        s.trainingPlans = [];
+        s.trainingReports = [];
         s.scouts = [];
         s.tempLineupBackup = null;
         s.popups = [];

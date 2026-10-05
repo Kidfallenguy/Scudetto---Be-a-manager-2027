@@ -130,10 +130,10 @@ export function Office() {
         </Button>
         <Button variant="outline" size="lg" onClick={() => setScreen("train")}>
           <Dumbbell className="size-4" />
-          {save.trainingPlan
-            ? "Entrenamiento · en curso"
-            : save.trainingReport && !save.trainingReport.seen
-              ? "Entrenamiento · ¡informe listo!"
+          {save.trainingReports.some((r) => !r.seen)
+            ? "Entrenamiento · ¡informe listo!"
+            : save.trainingPlans.length > 0
+              ? "Entrenamiento · en curso"
               : "Entrenamiento"}
         </Button>
         <Button variant="outline" size="lg" onClick={() => setScreen("sponsors")}>

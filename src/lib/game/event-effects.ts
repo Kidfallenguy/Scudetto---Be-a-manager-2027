@@ -210,8 +210,8 @@ function removeFromSquad(save: GameSave, p: Player, eventId: string, compensatio
   save.players = save.players.filter((x) => x.id !== p.id);
   save.offers = save.offers.filter((o) => o.playerId !== p.id);
   save.loans = save.loans.filter((l) => l.playerId !== p.id);
-  if (save.trainingPlan) {
-    save.trainingPlan.assignments = save.trainingPlan.assignments.filter((a) => a.playerId !== p.id);
+  for (const plan of save.trainingPlans ?? []) {
+    plan.assignments = plan.assignments.filter((a) => a.playerId !== p.id);
   }
   const squad = save.players.filter((x) => x.clubId === save.clubId && !x.loanFrom);
   save.tactics.lineup = dropFromLineup(save.tactics.lineup, save.tactics.formation, p.id, squad);

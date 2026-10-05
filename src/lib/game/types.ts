@@ -318,20 +318,26 @@ export type Screen =
 /** Cualquier estadística entrenable: de campo (pac...phy) o de portero (div...pos). */
 export type TrainStat = keyof Attrs | keyof GkAttrs;
 
-/** Un jugador dentro de un plan de entrenamiento y las estadísticas que se le trabajan. */
+/** Nivel de entrenamiento: define precio, cupos y qué tanto puede mejorar el jugador. */
+export type TrainingTier = "progressive" | "intensive" | "elite";
+
+/** Un jugador dentro de un plan de entrenamiento. */
 export interface TrainingAssignment {
   playerId: string;
-  stats: TrainStat[];
 }
 
-/** Ciclo de entrenamiento en curso: dura 6 meses de tiempo de juego. */
+/** Ciclo de entrenamiento en curso (uno por nivel como máximo): dura exactamente 6 meses de tiempo de juego. */
 export interface TrainingPlan {
+  id: string;
+  tier: TrainingTier;
+  /** Plata pagada al arrancar (0 en partidas viejas migradas). */
+  cost: number;
   assignments: TrainingAssignment[];
   /** Fecha (ISO) en la que arrancó. */
   startDate: string;
   /** Días de juego transcurridos. */
   elapsedDays: number;
-  /** Días totales del ciclo (6 meses ≈ 182). */
+  /** Días totales del ciclo (6 meses de calendario desde la fecha de inicio). */
   totalDays: number;
 }
 
@@ -360,6 +366,8 @@ export interface TrainingPlayerResult {
 
 export interface TrainingReport {
   id: string;
+  tier: TrainingTier;
+  cost: number;
   season: number;
   endedWeek: number;
   results: TrainingPlayerResult[];
@@ -747,10 +755,10 @@ export interface GameSave {
   careerTrophies: CareerTrophy[];
   seasonOver: boolean;
   pendingFixtureId: string | null;
-  /** Ciclo de entrenamiento en curso (null = no hay ninguno). */
-  trainingPlan: TrainingPlan | null;
-  /** Resultado del último ciclo terminado. */
-  trainingReport: TrainingReport | null;
+  /** Ciclos de entrenamiento en curso (como máximo uno por nivel). */
+  trainingPlans: TrainingPlan[];
+  /** Informes de los últimos ciclos terminados (el más nuevo primero). */
+  trainingReports: TrainingReport[];
   academy: YouthPlayer[];
   scouts: ScoutMission[];
   academyLevel: number;
