@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 96">
-  <path d="M40 6 L70 18 V50 C70 70 56 84 40 90 C24 84 10 70 10 50 V18 Z" fill="#d70f1f" stroke="#ffffff" stroke-width="3"/>
-  <path d="M40 6 L70 18 V50 C70 70 56 84 40 90 V6 Z" fill="#ffffff" opacity="0.28"/>
-  <text x="40" y="54" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700" fill="#f4efe6">SEV</text>
-</svg>
